@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+  /* Primary - Green for soccer vibe */
+  --color-primary: oklch(0.55 0.2 142);
+  --color-primary-foreground: oklch(0.98 0 0);
+  
+  /* Secondary - Gray */
+  --color-secondary: oklch(0.92 0 0);
+  --color-secondary-foreground: oklch(0.2 0 0);
+  
+  /* Muted */
+  --color-muted: oklch(0.95 0 0);
+  --color-muted-foreground: oklch(0.5 0 0);
+  
+  /* Card */
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.15 0 0);
+  
+  /* Border */
+  --color-border: oklch(0.9 0 0);
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: oklch(0.97 0 0);
+  color: oklch(0.15 0 0);
+}
