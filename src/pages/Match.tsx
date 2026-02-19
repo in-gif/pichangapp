@@ -1,10 +1,60 @@
 import { useParams, Link } from 'react-router-dom'
 import { Calendar, MapPin, Clock, Users, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Position } from '@/types'
-import { POSITION_LABELS_SHORT } from '@/types'
 
-// Mock data for demo
+// Formaciones por tipo de partido - coordenadas en % (x, y) para cada slot
+// Y=0 es arriba (arco rival), Y=100 es abajo (arco propio)
+const FORMATIONS: Record<string, { x: number; y: number; label: string }[]> = {
+  '5v5': [
+    { x: 50, y: 95, label: 'POR' },  // Portero
+    { x: 30, y: 68, label: 'DEF' },  // Defensa izq
+    { x: 70, y: 68, label: 'DEF' },  // Defensa der
+    { x: 50, y: 40, label: 'VOL' },  // Volante
+    { x: 50, y: 12, label: 'DEL' },  // Delantero
+  ],
+  '6v6': [
+    { x: 50, y: 92, label: 'POR' },
+    { x: 30, y: 72, label: 'DEF' },
+    { x: 70, y: 72, label: 'DEF' },
+    { x: 30, y: 45, label: 'VOL' },
+    { x: 70, y: 45, label: 'VOL' },
+    { x: 50, y: 18, label: 'DEL' },
+  ],
+  '7v7': [
+    { x: 50, y: 92, label: 'POR' },
+    { x: 25, y: 72, label: 'DEF' },
+    { x: 50, y: 75, label: 'LIB' },  // Líbero
+    { x: 75, y: 72, label: 'DEF' },
+    { x: 35, y: 45, label: 'VOL' },
+    { x: 65, y: 45, label: 'VOL' },
+    { x: 50, y: 18, label: 'DEL' },
+  ],
+  '8v8': [
+    { x: 50, y: 92, label: 'POR' },
+    { x: 20, y: 72, label: 'DEF' },
+    { x: 50, y: 75, label: 'LIB' },
+    { x: 80, y: 72, label: 'DEF' },
+    { x: 25, y: 45, label: 'VOL' },
+    { x: 50, y: 42, label: 'ENG' },  // Enganche
+    { x: 75, y: 45, label: 'VOL' },
+    { x: 50, y: 18, label: 'DEL' },
+  ],
+  '11v11': [
+    { x: 50, y: 93, label: 'POR' },
+    { x: 15, y: 75, label: 'LI' },   // Lateral izq
+    { x: 38, y: 78, label: 'DFC' },  // Central izq
+    { x: 62, y: 78, label: 'DFC' },  // Central der
+    { x: 85, y: 75, label: 'LD' },   // Lateral der
+    { x: 30, y: 55, label: 'MCD' },  // Mediocampista def
+    { x: 70, y: 55, label: 'MCD' },
+    { x: 50, y: 40, label: 'MCO' },  // Mediocampista of
+    { x: 20, y: 22, label: 'EI' },   // Extremo izq
+    { x: 50, y: 15, label: 'DC' },   // Delantero centro
+    { x: 80, y: 22, label: 'ED' },   // Extremo der
+  ],
+}
+
+// Mock data para demo
 const mockMatch = {
   id: '1',
   title: 'Pichanga Semanal',
@@ -16,28 +66,21 @@ const mockMatch = {
   status: 'open' as const,
   home_color: '#ef4444',
   away_color: '#3b82f6',
-  home_lineup: [
-    { slot: 1, position: 'goalkeeper' as Position, player: { name: 'Carlos M.', avatar: null } },
-    { slot: 2, position: 'defender' as Position, player: { name: 'Diego P.', avatar: null } },
-    { slot: 3, position: 'midfielder' as Position, player: { name: 'Andrés R.', avatar: null } },
-    { slot: 4, position: 'midfielder' as Position, player: null },
-    { slot: 5, position: 'forward' as Position, player: { name: 'Felipe S.', avatar: null } },
+  // Cada equipo tiene slots numerados, player puede ser null (vacante)
+  home_players: [
+    { slot: 0, player: { name: 'Carlos M.', avatar: null } },
+    { slot: 1, player: { name: 'Diego P.', avatar: null } },
+    { slot: 2, player: null }, // Vacante
+    { slot: 3, player: { name: 'Andrés R.', avatar: null } },
+    { slot: 4, player: { name: 'Felipe S.', avatar: null } },
   ],
-  away_lineup: [
-    { slot: 1, position: 'goalkeeper' as Position, player: { name: 'Martín L.', avatar: null } },
-    { slot: 2, position: 'defender' as Position, player: null },
-    { slot: 3, position: 'midfielder' as Position, player: { name: 'Lucas G.', avatar: null } },
-    { slot: 4, position: 'midfielder' as Position, player: null },
-    { slot: 5, position: 'forward' as Position, player: null },
+  away_players: [
+    { slot: 0, player: { name: 'Martín L.', avatar: null } },
+    { slot: 1, player: null },
+    { slot: 2, player: { name: 'Lucas G.', avatar: null } },
+    { slot: 3, player: null },
+    { slot: 4, player: null },
   ],
-}
-
-// Position coordinates for 5v5 formation (percentage based)
-const FORMATION_5V5 = {
-  goalkeeper: [{ x: 50, y: 90 }],
-  defender: [{ x: 50, y: 70 }],
-  midfielder: [{ x: 30, y: 45 }, { x: 70, y: 45 }],
-  forward: [{ x: 50, y: 20 }],
 }
 
 const getInitials = (name: string) => {
@@ -45,15 +88,14 @@ const getInitials = (name: string) => {
 }
 
 interface PlayerSlotProps {
-  position: Position
   player: { name: string; avatar: string | null } | null
   x: number
   y: number
+  label: string
   teamColor: string
-  isHome: boolean
 }
 
-function PlayerSlot({ position, player, x, y, teamColor, isHome: _isHome }: PlayerSlotProps) {
+function PlayerSlot({ player, x, y, label, teamColor }: PlayerSlotProps) {
   const isEmpty = !player
 
   return (
@@ -63,103 +105,94 @@ function PlayerSlot({ position, player, x, y, teamColor, isHome: _isHome }: Play
     >
       <div
         className={cn(
-          "w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-sm border-2 border-white shadow-lg transition-transform hover:scale-110",
-          isEmpty && "border-dashed opacity-60 cursor-pointer hover:opacity-100"
+          "w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-xs border-2 border-white shadow-lg transition-transform hover:scale-110 cursor-pointer",
+          isEmpty && "border-dashed opacity-50 hover:opacity-80"
         )}
-        style={{ backgroundColor: isEmpty ? '#666' : teamColor }}
+        style={{ backgroundColor: isEmpty ? '#555' : teamColor }}
       >
         {player ? getInitials(player.name) : '?'}
       </div>
-      <span className="text-xs font-medium text-white bg-black/50 px-2 py-0.5 rounded">
-        {player ? player.name.split(' ')[0] : POSITION_LABELS_SHORT[position]}
+      <span className="text-[10px] font-medium text-white bg-black/60 px-1.5 py-0.5 rounded whitespace-nowrap">
+        {player ? player.name.split(' ')[0] : label}
       </span>
     </div>
   )
 }
 
-function PitchLineup({ 
-  homeLineup, 
-  awayLineup, 
-  homeColor, 
-  awayColor 
-}: { 
-  homeLineup: typeof mockMatch.home_lineup
-  awayLineup: typeof mockMatch.away_lineup
+interface PitchLineupProps {
+  format: string
+  homePlayers: typeof mockMatch.home_players
+  awayPlayers: typeof mockMatch.away_players
   homeColor: string
   awayColor: string
-}) {
-  // Group players by position
-  const getPositionPlayers = (lineup: typeof homeLineup, position: Position) => {
-    return lineup.filter(p => p.position === position)
-  }
+}
 
+function PitchLineup({ format, homePlayers, awayPlayers, homeColor, awayColor }: PitchLineupProps) {
+  const formation = FORMATIONS[format] || FORMATIONS['5v5']
+  
   return (
-    <div className="relative w-full aspect-[3/4] max-w-md mx-auto rounded-xl overflow-hidden shadow-xl">
-      {/* Pitch Background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-green-600 to-green-700">
-        {/* Field markings */}
-        <div className="absolute inset-4 border-2 border-white/40 rounded-lg">
-          {/* Center line */}
-          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/40" />
-          {/* Center circle */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 border-2 border-white/40 rounded-full" />
-          {/* Goal areas */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-12 border-2 border-t-0 border-white/40" />
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-12 border-2 border-b-0 border-white/40" />
+    <div className="relative w-full aspect-[2/3] max-w-sm mx-auto rounded-xl overflow-hidden shadow-xl">
+      {/* Cancha */}
+      <div className="absolute inset-0 bg-gradient-to-b from-green-500 to-green-600">
+        {/* Líneas del campo */}
+        <div className="absolute inset-3 border-2 border-white/30 rounded">
+          {/* Línea central */}
+          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-white/30" />
+          {/* Círculo central */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 border-2 border-white/30 rounded-full" />
+          {/* Área grande arriba (equipo visita) */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2/3 h-[15%] border-2 border-t-0 border-white/30" />
+          {/* Área chica arriba */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/3 h-[8%] border-2 border-t-0 border-white/30" />
+          {/* Área grande abajo (equipo local) */}
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-[15%] border-2 border-b-0 border-white/30" />
+          {/* Área chica abajo */}
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/3 h-[8%] border-2 border-b-0 border-white/30" />
         </div>
       </div>
 
-      {/* Away Team (Top Half) */}
-      <div className="absolute top-0 left-0 right-0 h-1/2">
-        {(['goalkeeper', 'defender', 'midfielder', 'forward'] as Position[]).map(position => {
-          const players = getPositionPlayers(awayLineup, position)
-          const coords = FORMATION_5V5[position]
-          
-          return players.map((p, idx) => {
-            const coord = coords[idx] || coords[0]
-            // Flip Y for away team (they're on top)
-            const adjustedY = 100 - coord.y
-            return (
-              <PlayerSlot
-                key={`away-${p.slot}`}
-                position={p.position}
-                player={p.player}
-                x={coord.x}
-                y={adjustedY * 2} // Scale to half
-                teamColor={awayColor}
-                isHome={false}
-              />
-            )
-          })
-        })}
-      </div>
+      {/* Equipo Visita (arriba - coordenadas invertidas) */}
+      {formation.map((pos, idx) => {
+        const awaySlot = awayPlayers.find(p => p.slot === idx)
+        // Invertir Y y escalar a rango 5-42% (mitad superior)
+        // pos.y va de ~12 (delantero) a ~95 (portero)
+        // queremos: delantero cerca del centro (~38%), portero arriba (~5%)
+        const normalizedY = (pos.y - 10) / 90  // normalizar 10-100 a 0-1
+        const awayY = 5 + (1 - normalizedY) * 36  // portero=5%, delantero=38%
+        return (
+          <PlayerSlot
+            key={`away-${idx}`}
+            player={awaySlot?.player || null}
+            x={pos.x}
+            y={awayY}
+            label={pos.label}
+            teamColor={awayColor}
+          />
+        )
+      })}
 
-      {/* Home Team (Bottom Half) */}
-      <div className="absolute bottom-0 left-0 right-0 h-1/2">
-        {(['goalkeeper', 'defender', 'midfielder', 'forward'] as Position[]).map(position => {
-          const players = getPositionPlayers(homeLineup, position)
-          const coords = FORMATION_5V5[position]
-          
-          return players.map((p, idx) => {
-            const coord = coords[idx] || coords[0]
-            return (
-              <PlayerSlot
-                key={`home-${p.slot}`}
-                position={p.position}
-                player={p.player}
-                x={coord.x}
-                y={coord.y * 2} // Scale to half
-                teamColor={homeColor}
-                isHome={true}
-              />
-            )
-          })
-        })}
-      </div>
+      {/* Equipo Local (abajo) */}
+      {formation.map((pos, idx) => {
+        const homeSlot = homePlayers.find(p => p.slot === idx)
+        // Escalar a rango 58-91% (mitad inferior)
+        // queremos: delantero cerca del centro (~58%), portero abajo (~91%)
+        const normalizedY = (pos.y - 10) / 90  // normalizar 10-100 a 0-1
+        const homeY = 58 + normalizedY * 33  // delantero=58%, portero=91%
+        return (
+          <PlayerSlot
+            key={`home-${idx}`}
+            player={homeSlot?.player || null}
+            x={pos.x}
+            y={homeY}
+            label={pos.label}
+            teamColor={homeColor}
+          />
+        )
+      })}
 
-      {/* VS Badge */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg z-10">
-        <span className="font-bold text-gray-800">VS</span>
+      {/* Badge VS */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg z-10">
+        <span className="font-bold text-gray-800 text-sm">VS</span>
       </div>
     </div>
   )
@@ -167,7 +200,7 @@ function PitchLineup({
 
 export default function Match() {
   const { id } = useParams()
-  // In real app, fetch by id - for now we use mock data
+  // En la app real, buscar por id - por ahora usamos mock
   const match = id ? mockMatch : mockMatch
 
   const formatDate = (date: string) => {
@@ -178,10 +211,12 @@ export default function Match() {
     })
   }
 
-  const homePlayersCount = match.home_lineup.filter(p => p.player).length
-  const awayPlayersCount = match.away_lineup.filter(p => p.player).length
-  const totalPlayers = homePlayersCount + awayPlayersCount
-  const totalSlots = match.home_lineup.length + match.away_lineup.length
+  const formation = FORMATIONS[match.format] || FORMATIONS['5v5']
+  const slotsPerTeam = formation.length
+  const homeFilledCount = match.home_players.filter(p => p.player).length
+  const awayFilledCount = match.away_players.filter(p => p.player).length
+  const totalPlayers = homeFilledCount + awayFilledCount
+  const totalSlots = slotsPerTeam * 2
 
   return (
     <div className="space-y-6">
@@ -226,33 +261,34 @@ export default function Match() {
         </div>
       </div>
 
-      {/* Team Colors Legend */}
+      {/* Leyenda de equipos */}
       <div className="flex justify-center gap-8">
         <div className="flex items-center gap-2">
           <div 
-            className="w-6 h-6 rounded-full border-2 border-white shadow"
+            className="w-5 h-5 rounded-full border-2 border-white shadow"
             style={{ backgroundColor: match.home_color }}
           />
-          <span className="font-medium">Equipo Local</span>
+          <span className="text-sm font-medium">Local ({homeFilledCount}/{slotsPerTeam})</span>
         </div>
         <div className="flex items-center gap-2">
           <div 
-            className="w-6 h-6 rounded-full border-2 border-white shadow"
+            className="w-5 h-5 rounded-full border-2 border-white shadow"
             style={{ backgroundColor: match.away_color }}
           />
-          <span className="font-medium">Equipo Visita</span>
+          <span className="text-sm font-medium">Visita ({awayFilledCount}/{slotsPerTeam})</span>
         </div>
       </div>
 
-      {/* Pitch Lineup */}
+      {/* Cancha con formación */}
       <PitchLineup
-        homeLineup={match.home_lineup}
-        awayLineup={match.away_lineup}
+        format={match.format}
+        homePlayers={match.home_players}
+        awayPlayers={match.away_players}
         homeColor={match.home_color}
         awayColor={match.away_color}
       />
 
-      {/* Join Button */}
+      {/* Botón unirse */}
       <div className="sticky bottom-20 pt-4">
         <button className="w-full py-4 bg-primary text-primary-foreground rounded-xl font-semibold text-lg hover:bg-primary/90 transition-colors shadow-lg">
           Unirse al Partido
