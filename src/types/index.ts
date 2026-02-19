@@ -1,103 +1,84 @@
-// Player types
-export interface Player {
-  id: string;
-  name: string;
-  email: string;
-  avatar_url?: string;
-  position_baby: Position;
-  position_11: Position;
-  preferred_foot: 'left' | 'right' | 'both';
-  height?: number; // cm
-  weight?: number; // kg
-  created_at: string;
+// Database types (matching Supabase schema)
+
+export interface Profile {
+  id: string
+  name: string
+  email: string | null
+  avatar_url: string | null
+  position_baby: Position | null
+  position_11: Position | null
+  preferred_foot: 'left' | 'right' | 'both'
+  height: number | null
+  weight: number | null
+  created_at: string
 }
 
-export type Position = 
-  | 'goalkeeper'
-  | 'defender'
-  | 'midfielder'
-  | 'forward';
-
-export type PositionSlot = {
-  position: Position;
-  player?: Player;
-  slot_number: number;
-};
-
-// Match types
 export interface Match {
-  id: string;
-  title: string;
-  date: string;
-  time: string;
-  location: string;
-  location_url?: string;
-  format: '5v5' | '7v7' | '11v11';
-  home_color: string;
-  away_color: string;
-  status: 'open' | 'full' | 'in_progress' | 'completed' | 'cancelled';
-  created_by: string;
-  created_at: string;
-  home_lineup: PositionSlot[];
-  away_lineup: PositionSlot[];
+  id: string
+  title: string
+  date: string
+  time: string
+  location: string
+  location_url: string | null
+  format: MatchFormat
+  home_color: string
+  away_color: string
+  status: 'open' | 'full' | 'in_progress' | 'finished' | 'cancelled'
+  created_at: string
 }
 
 export interface MatchPlayer {
-  id: string;
-  match_id: string;
-  player_id: string;
-  team: 'home' | 'away';
-  position: Position;
-  slot_number: number;
-  confirmed: boolean;
-  joined_at: string;
-  player?: Player;
+  id: string
+  match_id: string
+  player_id: string
+  team: 'home' | 'away'
+  slot: number
+  joined_at: string
+  // Joined data
+  player?: Profile
 }
 
+// Match with player counts (for list view)
+export interface MatchWithCounts extends Match {
+  home_players_count: number
+  away_players_count: number
+  slots_per_team: number
+}
+
+// Match with full lineup (for detail view)
+export interface MatchWithLineup extends Match {
+  home_players: MatchPlayer[]
+  away_players: MatchPlayer[]
+}
+
+// Enums
+export type Position = 'goalkeeper' | 'defender' | 'midfielder' | 'forward'
+export type MatchFormat = '5v5' | '6v6' | '7v7' | '8v8' | '11v11'
+
 // Format configurations
-export const FORMAT_CONFIG = {
-  '5v5': {
-    name: 'Baby Fútbol',
-    players_per_team: 5,
-    positions: {
-      goalkeeper: 1,
-      defender: 1,
-      midfielder: 2,
-      forward: 1,
-    },
-  },
-  '7v7': {
-    name: 'Fútbol 7',
-    players_per_team: 7,
-    positions: {
-      goalkeeper: 1,
-      defender: 2,
-      midfielder: 2,
-      forward: 2,
-    },
-  },
-  '11v11': {
-    name: 'Fútbol 11',
-    players_per_team: 11,
-    positions: {
-      goalkeeper: 1,
-      defender: 4,
-      midfielder: 4,
-      forward: 2,
-    },
-  },
-} as const;
+export const FORMAT_CONFIG: Record<MatchFormat, { name: string; slots: number }> = {
+  '5v5': { name: 'Baby Fútbol', slots: 5 },
+  '6v6': { name: 'Fútbol 6', slots: 6 },
+  '7v7': { name: 'Fútbol 7', slots: 7 },
+  '8v8': { name: 'Fútbol 8', slots: 8 },
+  '11v11': { name: 'Fútbol 11', slots: 11 },
+}
 
 export const POSITION_LABELS: Record<Position, string> = {
   goalkeeper: 'Arquero',
   defender: 'Defensa',
   midfielder: 'Mediocampista',
   forward: 'Delantero',
-};
+}
 
 export const POSITION_LABELS_SHORT: Record<Position, string> = {
-  goalkeeper: 'ARQ',
+  goalkeeper: 'POR',
   defender: 'DEF',
   midfielder: 'MED',
   forward: 'DEL',
-};
+}
+
+// Helper to get slots per team for a format
+export function getSlotsPerTeam(format: MatchFormat): number {
+  return FORMAT_CONFIG[format]?.slots || 5
+}
